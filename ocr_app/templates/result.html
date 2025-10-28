@@ -1,0 +1,8 @@
+<h2>First Column Extracted</h2>
+<ul>
+  {% for matiere in matieres %}
+    <li>{{ matiere }}</li>
+  {% empty %}
+    <li>No data found</li>
+  {% endfor %}
+</ul>

@@ -1,0 +1,6 @@
+<h2>Upload scanned Relevé de Notes</h2>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <input type="file" name="pdf_file" accept="application/pdf" required>
+  <button type="submit">Scan</button>
+</form>
