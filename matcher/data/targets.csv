@@ -1,0 +1,44 @@
+code,title_fr,categorie,level
+# S5 — Sciences fondamentales-1
+math.maths.ingenieur,Mathématiques de l’ingénieur,math,5
+info.systemes.logiques,Systèmes logiques,info,5
+
+# S5 — Réseaux et Systèmes d'exploitation-1
+reseaux.ip.1,Réseaux IP-1,reseaux,5
+systemes.linux.1,Système d’exploitation Linux-1,systemes,5
+
+# S5 — Algorithmique et Programmation-1
+info.algo.ds,Algorithmique et structure de données,info,5
+info.prog.c,Programmation C,info,5
+info.web.html.css.bootstrap,"HTML5, CSS3, BootStrap",info,5
+
+# S5 — Systèmes d’Information-1
+info.sgbdr,Systèmes de gestion de bases de données relationnelles,info,5
+systemes.virtualisation.cloud,Virtualisation et Cloud,systemes,5
+
+# S5 — Langues et Communication & Culture-1
+lang.techniques.comm.1,Techniques de communication-1,langues,5
+lang.english.comm.1,Communication English-1,langues,5
+
+# S6 — Sciences fondamentales-2
+math.proba.stats.processus,"Probabilités, Statistiques et Processus aléatoires",math,6
+math.theorie.graphes,Théorie des graphes,math,6
+info.theorie.langages,Théorie des langages,info,6
+
+# S6 — Réseaux et Systèmes d'exploitation-2
+reseaux.ip.2,Réseaux IP-2,reseaux,6
+systemes.linux.2,Systèmes d’exploitation LINUX-2,systemes,6
+
+# S6 — Algorithmique et Programmation-2
+info.prog.java,Programmation JAVA,info,6
+info.prog.python,Programmation Python,info,6
+info.ia.generative,IA générative,info,6
+
+# S6 — Systèmes d’Information-2
+info.modelisation.uml,Modélisation UML,info,6
+info.gestion.versions.decentralisee,Gestion de versions décentralisée,info,6
+info.web.js.php,Développement web JS/PHP,info,6
+
+# S6 — Langues et Communication & Culture-2
+lang.techniques.comm.2,Techniques de communication-2,langues,6
+lang.english.comm.2,Communication English-2,langues,6

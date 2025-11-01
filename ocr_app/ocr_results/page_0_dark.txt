@@ -1,0 +1,224 @@
+Etudiant : MEDINI Yosr
+CIN/PASSPORT n* 14506335
+2022-2023
+Cycle : Ingénieur Informatique
+Classe : Deuxième année Préparatoire Intégré (CPI 2-A)
+Semestre 1
+Panier/Module
+Notes
+Moy.
+Moy.
+Note
+Moy.
+Rang.
+Intitulé
+V.H
+Coef
+De
+Av.
+Ratt.
+Après
+Av.
+classe
+Ratt.
+Ratt.
+Ratt.
+Sciences fondamentales - 3
+84
+4
+11.06
+12.60
+9
+Analyse 3
+42
+2
+11.16
+10.80
+15/30
+Algèbre - 3
+42
+2
+10.96
+14.40
+5/30
+Sciences Informatiques - 3
+84
+4
+12.55
+17.81
+2
+Python 1
+42
+2
+12.92
+18.18
+2/30
+Systèmes Logiques
+42
+2
+12.18
+17.45
+2/30
+Sciences de l'ingénleur - 3
+105
+5
+11.11
+14.25
+6
+Fondement de base des systèmes
+42
+2
+9.61
+13.20
+8/30
+Traitement de signal
+21
+1
+14.21
+16.25
+9/30
+Electromagnétisme 2
+42
+2
+11.06
+14.30
+4/30
+Langues, Communication et Culture d'Entreprise-3
+63
+3
+12.45
+15.52
+4
+Français 3
+21
+1
+15.03
+19.05
+1/30
+Anglais 3
+21
+1
+12.40
+14.25
+8/30
+Gestion d'entreprise 1
+21
+1
+9.92
+13.25
+10/30
+Total
+9EE
+16
+Moyenne Semestre 1 Avant rattrapage
+14.97
+Rang
+5/30
+Moyenne Semestre 1 Après rattrapage
+Semestre 2
+Panier/Module
+Notes
+Moy.
+Moy.
+Moy.
+Rang.
+Intitulé
+V.H
+Coef
+De
+Av.
+Note
+Ratt.
+Après
+Av.
+classe
+Ratt.
+Ratt.
+Ratt.
+Sciences fondamentales - 4
+63
+3
+10.99
+14.63
+5
+Algèbre -4
+21
+1
+11.31
+17.70
+2/30
+Analyse-4
+42
+2
+10.83
+13.10
+5/30
+Sciences informatiques - 4
+126
+6
+11.89
+15.47
+6
+Python-2
+42
+2
+11.85
+15.75
+7/30
+Architecture des ordinateurs modernes
+42
+2
+10.13
+13.60
+6/30
+Programmation C
+42
+2
+13.69
+17.05
+9/30
+Sciences de l'ingénleur-5
+84
+4
+15.39
+17.52
+4
+Transmission de données
+42
+2
+13.91
+17.05
+4/30
+Projet intégré
+42
+2
+16.87
+18.00
+2/30
+Lángues, Communication et Culture d'Entreprise-4
+63
+3
+13.61
+15.63
+8
+Anglais 4
+21
+1
+PEEL
+16.35
+2/30
+Français-4
+21
+1
+15.13
+18.55
+1/30
+Gestion d'entreprise-2
+21
+1
+12.35
+12.00
+16/30
+Total
+9E9
+16

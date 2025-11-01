@@ -10,6 +10,9 @@ venv311/
 env/
 ENV/
 *.env
+venv/
+.venv/
+
 
 # IDE / Editor files
 .idea/
@@ -24,3 +27,8 @@ staticfiles/
 # OS files
 .DS_Store
 Thumbs.db
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.env
