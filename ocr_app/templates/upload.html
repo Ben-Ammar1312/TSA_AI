@@ -1,6 +1,24 @@
-<h2>Upload scanned Relevé de Notes</h2>
-<form method="post" enctype="multipart/form-data">
-  {% csrf_token %}
-  <input type="file" name="pdf_file" accept="application/pdf" required>
-  <button type="submit">Scan</button>
-</form>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OCR Upload</title>
+</head>
+<body>
+    <h1>📄 Upload Image for OCR</h1>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Run OCR</button>
+    </form>
+
+    {% if error %}
+        <p style="color:red;">{{ error }}</p>
+    {% endif %}
+
+    {% if result %}
+        <h2>✅ OCR Result:</h2>
+        <pre>{{ result }}</pre>
+    {% endif %}
+</body>
+</html>

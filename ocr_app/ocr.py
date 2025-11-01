@@ -52,22 +52,37 @@ def adaptive_preprocess(image_path, save_dir):
     print(f"   • SNR           : {snr:.2f}")
 
     # --- Determine preprocessing strategy ---
-    if noise_var > 1000 or snr < 10:
-        print("🧹 Detected strong Gaussian noise → Applying Non-local Means denoising")
-        processed = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 21)
-    elif sp_ratio > 0.02:
-        print("⚫ Detected salt & pepper noise → Applying median blur")
-        processed = cv2.medianBlur(img, 3)
-    elif lap_var < 50:
-        print("💡 Low detail detected → Possibly blurred, applying sharpening")
+    if noise_var > 1500:
+        print("⚠️ Extreme Gaussian noise → Applying bilateral filter")
+        processed = cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
+        
+    elif noise_var > 600 or snr < 14:
+        print("🧹 Detected Gaussian-like noise → Applying Non-local Means + light sharpening")
+        denoised = cv2.fastNlMeansDenoisingColored(img, None, 12, 12, 7, 21)
+        sharpen_kernel = np.array([[0, -1, 0],
+                                [-1, 5, -1],
+                                [0, -1, 0]])
+        processed = cv2.filter2D(denoised, -1, sharpen_kernel)
+
+    elif sp_ratio > 0.005:
+        print("⚫ Detected salt & pepper noise → Applying median blur + CLAHE")
+        median = cv2.medianBlur(img, 3)
+        gray = cv2.cvtColor(median, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        processed = clahe.apply(gray)
+
+    elif lap_var < 80:
+        print("💡 Detected blur → Applying unsharp mask")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        sharpen_kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-        processed = cv2.filter2D(gray, -1, sharpen_kernel)
+        blurred = cv2.GaussianBlur(gray, (9, 9), 10.0)
+        processed = cv2.addWeighted(gray, 1.5, blurred, -0.5, 0)
+
     else:
-        print("✅ Clean image → Light enhancement only")
+        print("✅ Clean image → Light CLAHE enhancement")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
         processed = clahe.apply(gray)
+
 
     # --- Convert and save processed image ---
     os.makedirs(save_dir, exist_ok=True)
