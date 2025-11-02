@@ -10,6 +10,9 @@ venv311/
 env/
 ENV/
 *.env
+venv/
+.venv/
+
 
 # IDE / Editor files
 .idea/
@@ -25,7 +28,15 @@ staticfiles/
 .DS_Store
 Thumbs.db
 
+
 # ocr files
 ocr_app/ocr_results/
 ocr_app/variants/
 ocr_app/processed/
+
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.env
+

@@ -1,0 +1,52 @@
+code,label,language
+# FR aliases
+math.maths.ingenieur,Mathématiques de l’ingenieur,fr
+info.systemes.logiques,Systèmes logiques,fr
+reseaux.ip.1,Réseaux IP 1,fr
+systemes.linux.1,Système d’exploitation Linux 1,fr
+info.algo.ds,Algorithmique et structures de données,fr
+info.prog.c,Programmation en C,fr
+info.web.html.css.bootstrap,"HTML5, CSS3 et Bootstrap",fr
+info.sgbdr,SGBDR,fr
+systemes.virtualisation.cloud,Virtualisation & Cloud,fr
+lang.techniques.comm.1,Techniques de communication 1,fr
+lang.english.comm.1,Communication English 1,fr
+math.proba.stats.processus,"Probabilités, Statistiques et Processus aléatoires",fr
+math.theorie.graphes,Théorie des graphes,fr
+info.theorie.langages,Théorie des langages,fr
+reseaux.ip.2,Réseaux IP 2,fr
+systemes.linux.2,Systèmes d’exploitation Linux 2,fr
+info.prog.java,Programmation Java,fr
+info.prog.python,Programmation Python,fr
+info.ia.generative,Intelligence artificielle générative,fr
+info.modelisation.uml,Modélisation UML,fr
+info.gestion.versions.decentralisee,Gestion de versions décentralisée,fr
+info.web.js.php,Développement web JS / PHP,fr
+lang.techniques.comm.2,Techniques de communication 2,fr
+lang.english.comm.2,Communication English 2,fr
+
+# EN aliases
+math.maths.ingenieur,Engineering Mathematics,en
+info.systemes.logiques,Logic Systems,en
+reseaux.ip.1,Network IP-1,en
+systemes.linux.1,Linux Operating System-1,en
+info.algo.ds,Algorithms and Data Structures,en
+info.prog.c,Programming in C,en
+info.web.html.css.bootstrap,HTML5 CSS3 Bootstrap,en
+info.sgbdr,Relational Database Management Systems,en
+systemes.virtualisation.cloud,Virtualization and Cloud,en
+lang.techniques.comm.1,Communication Techniques-1,en
+lang.english.comm.1,Communication English-1,en
+math.proba.stats.processus,Probability Statistics and Stochastic Processes,en
+math.theorie.graphes,Graph Theory,en
+info.theorie.langages,Theory of Languages,en
+reseaux.ip.2,Network IP-2,en
+systemes.linux.2,Linux Operating System-2,en
+info.prog.java,Java Programming,en
+info.prog.python,Python Programming,en
+info.ia.generative,Generative AI,en
+info.modelisation.uml,UML Modeling,en
+info.gestion.versions.decentralisee,Distributed Version Control,en
+info.web.js.php,Web Development JS/PHP,en
+lang.techniques.comm.2,Communication Techniques-2,en
+lang.english.comm.2,Communication English-2,en
