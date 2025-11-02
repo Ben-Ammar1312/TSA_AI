@@ -26,6 +26,6 @@ staticfiles/
 Thumbs.db
 
 # ocr files
-ocr_app/ocr_results
-ocr_app/variants
-ocr_app/processed
+ocr_app/ocr_results/
+ocr_app/variants/
+ocr_app/processed/
