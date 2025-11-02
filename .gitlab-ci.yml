@@ -1,0 +1,41 @@
+stages:
+  - build
+  - push
+
+variables:
+  IMAGE_TAG: $DOCKERHUB_REPO:$CI_COMMIT_SHORT_SHA
+
+# =======================
+# Build Stage
+# =======================
+build_image:
+  stage: build
+  image: docker:24.0.2
+  services:
+    - docker:dind
+  script:
+    - echo "Building Docker image..."
+    - docker build -t $IMAGE_TAG .
+  only:
+    - merge_requests
+  except:
+    - main
+
+# =======================
+# Push Stage
+# =======================
+push_to_dockerhub:
+  stage: push
+  image: docker:24.0.2
+  services:
+    - docker:dind
+  script:
+    - echo "Logging into Docker Hub..."
+    - docker login -u "$DOCKERHUB_USERNAME" -p "$DOCKERHUB_TOKEN"
+    - echo "Tagging and pushing image..."
+    - docker tag $IMAGE_TAG $DOCKERHUB_REPO:dev
+    - docker push $DOCKERHUB_REPO:dev
+  only:
+    - merge_requests
+  except:
+    - main
