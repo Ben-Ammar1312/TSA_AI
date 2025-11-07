@@ -12,12 +12,13 @@ def extract_courses(text: str) -> list:
     try:
         # Don't use --json for now, it hides the real output
         result = subprocess.run(
-            ["ollama", "run", "llama3"],
+            ["ollama", "run", "llama3.1:8b-instruct-q4_K_M"],
             input=prompt.encode("utf-8"),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=True
         )
+
 
         output = result.stdout.decode("utf-8").strip()
         print("🧠 Raw Llama output:", output)
