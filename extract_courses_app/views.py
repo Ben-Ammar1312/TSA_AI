@@ -1,21 +1,16 @@
-from django.shortcuts import render
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 from .llama_service import extract_courses
-import json
+from .serializers import ExtractRequestSerializer
 
-
-@csrf_exempt
+@api_view(["POST"])
 def extract_view(request):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body.decode("utf-8"))
-            text = data.get("text", "")
-        except Exception:
-            text = request.POST.get("text", "")
-
+    serializer = ExtractRequestSerializer(data=request.data)
+    if serializer.is_valid():
+        text = serializer.validated_data["text"]
         print("📩 Received text:", text)
         courses = extract_courses(text)
         print("✅ Extracted courses:", courses)
-        return JsonResponse({"courses": courses})
-    return JsonResponse({"error": "POST required"}, status=400)
+        return Response({"courses": courses}, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -6,6 +6,12 @@ from django.shortcuts import render
 from django.conf import settings
 from paddleocr import PaddleOCR
 from .forms import OCRUploadForm
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
+from .serializers import OCRUploadSerializer
+
 
 # Initialize OCR model once
 ocr = PaddleOCR(lang='fr', use_textline_orientation=True)
@@ -84,38 +90,51 @@ def adaptive_preprocess(image_path, save_dir):
     return Image.fromarray(processed), None
 
 # === Main view ===
-def ocr_view(request):
-    result_text = None
-    error_message = None
 
-    if request.method == "POST":
-        form = OCRUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            image_file = form.cleaned_data['image']
-            upload_dir = os.path.join(settings.MEDIA_ROOT, "uploads")
-            os.makedirs(upload_dir, exist_ok=True)
-            image_path = os.path.join(upload_dir, image_file.name)
+@api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser])
+def ocr_api_view(request):
+    """
+    REST API endpoint for OCR extraction.
+    Accepts an image file and returns extracted text as JSON.
+    """
+    serializer = OCRUploadSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            with open(image_path, 'wb+') as destination:
-                for chunk in image_file.chunks():
-                    destination.write(chunk)
+    image_file = serializer.validated_data["image"]
 
-            processed_dir = os.path.join(settings.MEDIA_ROOT, "processed")
-            image, error_message = adaptive_preprocess(image_path, processed_dir)
+    # Save uploaded image
+    upload_dir = os.path.join(settings.MEDIA_ROOT, "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    image_path = os.path.join(upload_dir, image_file.name)
 
-            if image is not None:
-                img_np = np.array(image.convert("RGB"))
-                ocr_result = ocr.predict(img_np)
-                texts = []
-                for res in ocr_result:
-                    texts.extend(res.get('rec_texts', []))
-                result_text = "\n".join(texts)
+    with open(image_path, "wb+") as destination:
+        for chunk in image_file.chunks():
+            destination.write(chunk)
 
-    else:
-        form = OCRUploadForm()
+    # Preprocess image
+    processed_dir = os.path.join(settings.MEDIA_ROOT, "processed")
+    image, error_message = adaptive_preprocess(image_path, processed_dir)
 
-    return render(request, "upload.html", {
-        "form": form,
-        "result": result_text,
-        "error": error_message,
-    })
+    if error_message:
+        return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+
+    if image is None:
+        return Response({"error": "Image processing failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # Perform OCR
+    img_np = np.array(image.convert("RGB"))
+    ocr_result = ocr.predict(img_np)
+
+    # Extract recognized text
+    texts = []
+    for res in ocr_result:
+        texts.extend(res.get("rec_texts", []))
+    result_text = "\n".join(texts)
+
+    return Response({
+        "filename": image_file.name,
+        "text": result_text,
+        "lines_count": len(texts)
+    }, status=status.HTTP_200_OK)
