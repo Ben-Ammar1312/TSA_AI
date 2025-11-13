@@ -1,17 +1,18 @@
+# views.py
+
 import os
 import cv2
 import numpy as np
 from PIL import Image
-from django.shortcuts import render
 from django.conf import settings
-from paddleocr import PaddleOCR
-from .forms import OCRUploadForm
 from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.parsers import MultiPartParser, FormParser
-from .serializers import OCRUploadSerializer
+from paddleocr import PaddleOCR
 
+from .serializers import OCRUploadSerializer
+from extract_courses_app import extract_view
 
 # Initialize OCR model once
 ocr = PaddleOCR(lang='fr', use_textline_orientation=True)
@@ -52,7 +53,7 @@ def adaptive_preprocess(image_path, save_dir):
     NOISE_VAR_LIMIT = 4900      # Gaussian noise variance above this → very noisy
     SNR_LIMIT = 2               # Signal-to-noise ratio below this → very noisy
     BLUR_LIMIT = 30             # Laplacian variance below this → blurry
-    SP_RATIO_LIMIT = 0.1       # Salt & pepper noise above this → noticeable
+    SP_RATIO_LIMIT = 0.1        # Salt & pepper noise above this → noticeable
 
     # Evaluate conditions
     TOO_NOISY = noise_var > NOISE_VAR_LIMIT or snr < SNR_LIMIT
@@ -89,14 +90,12 @@ def adaptive_preprocess(image_path, save_dir):
 
     return Image.fromarray(processed), None
 
-# === Main view ===
-
+# === Combined OCR + Course Extraction API ===
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser])
-def ocr_api_view(request):
+def ocr_extract_courses_view(request):
     """
-    REST API endpoint for OCR extraction.
-    Accepts an image file and returns extracted text as JSON.
+    Accepts an image, runs OCR, and extracts courses from the text.
     """
     serializer = OCRUploadSerializer(data=request.data)
     if not serializer.is_valid():
@@ -116,10 +115,8 @@ def ocr_api_view(request):
     # Preprocess image
     processed_dir = os.path.join(settings.MEDIA_ROOT, "processed")
     image, error_message = adaptive_preprocess(image_path, processed_dir)
-
     if error_message:
         return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
-
     if image is None:
         return Response({"error": "Image processing failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -133,8 +130,12 @@ def ocr_api_view(request):
         texts.extend(res.get("rec_texts", []))
     result_text = "\n".join(texts)
 
+    # Pass OCR result to course extraction
+    courses = extract_view(result_text)
+
     return Response({
         "filename": image_file.name,
-        "text": result_text,
-        "lines_count": len(texts)
+        "ocr_text": result_text,
+        "lines_count": len(texts),
+        "courses": courses
     }, status=status.HTTP_200_OK)
