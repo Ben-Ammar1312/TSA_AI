@@ -17,8 +17,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
+from app import views
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('ocr/',include('ocr_app.urls')),
-    path('courses/', include('extract_courses_app.urls'))
+
+    path('test/',views.health),
+    path('matcher/',include('matcher.urls')),
 ]

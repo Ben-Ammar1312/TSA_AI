@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import ocr_view
+from ocr_app.views import ocr_extract_courses_view
 
 urlpatterns = [
-    path("", ocr_view, name="ocr_view"),
+    path("", ocr_extract_courses_view, name="ocr_view"),
 ]

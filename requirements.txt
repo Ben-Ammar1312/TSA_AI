@@ -21,7 +21,7 @@ cssutils==2.11.1
 dataclasses-json==0.6.7
 decorator==5.2.1
 distro==1.9.0
-Django==5.2.7
+Django==5.1.4
 djangorestframework==3.16.1
 einops==0.8.1
 et_xmlfile==2.0.0
@@ -56,7 +56,7 @@ modelscope==1.31.0
 more-itertools==10.8.0
 multidict==6.7.0
 mypy_extensions==1.1.0
-networkx==3.5
+networkx==3.4.2
 numpy==2.2.4
 openai==2.6.0
 opencv-contrib-python==4.10.0.84
@@ -96,7 +96,7 @@ ruamel.yaml==0.18.15
 ruamel.yaml.clib==0.2.14
 safetensors==0.6.2
 scikit-learn==1.7.2
-scipy==1.16.2
+scipy==1.15.2
 sentencepiece==0.2.1
 shapely==2.1.2
 six==1.17.0
@@ -118,3 +118,13 @@ urllib3==2.5.0
 wcwidth==0.2.14
 yarl==1.22.0
 zstandard==0.25.0
+RapidFuzz==3.14.2
+PyJWT==2.10.1
+pycparser==2.23
+psycopg2-binary==2.9.11
+pgvector==0.4.1
+opencv-python==4.12.0.88
+hf-xet==1.2.0
+djangorestframework==3.16.1
+cryptography==46.0.3
+cffi==2.0.0

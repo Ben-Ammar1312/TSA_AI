@@ -25,8 +25,7 @@ SECRET_KEY = 'django-insecure-ypvk$mc_g$^apo+dhx_i#b0x_501&519sbrwz+6feswr&%*=hu
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
 # Application definition
 
@@ -41,14 +40,21 @@ INSTALLED_APPS = [
     "pgvector.django",
     "app",
     'ocr_app',
-    'matcher'
+    'matcher',
+    'extract_courses_app'
 ]
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["app.auth.KeycloakJWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
 }
-KEYCLOAK_ISSUER = "http://localhost:8080/realms/TSA"
-KEYCLOAK_AUDIENCE = "Django"
+KEYCLOAK_ISSUER = "http://localhost:8080/realms/TAS"
+KEYCLOAK_AUDIENCE = "django"
+SPRING_SUGGEST_URL = "http://localhost:8081/internal/suggestions"
+SPRING_SUGGEST_DEFAULT_LANG = "fr"
+
+
+
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

@@ -6,7 +6,7 @@ from matcher.models import SubjectTarget, SubjectAlias, Lang
 
 # Ollama settings
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-MODEL = "llama3.1:8b-instruct-q4_K_M"  # fits M1 16GB well (q4_K)
+MODEL = "llama3.1:8b-instruct-q4_K_M"
 
 def _target_lines() -> str:
     """

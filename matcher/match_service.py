@@ -1,5 +1,8 @@
 # matcher/match_service.py
-from typing import List, Dict
+from typing import List, Dict, Optional
+import requests
+from django.conf import settings
+
 from matcher.fuzzy import (
     fuzzy_match,
     TOKEN_RATIO_OK,
@@ -8,10 +11,49 @@ from matcher.fuzzy import (
     refresh_candidates,
 )
 from matcher.llm_fallback import map_with_llm
+from matcher.utils import normalize_label
 
 # thresholds
 LLM_MIN_CONF = 0.60
 NEAR_MISS_LOW = 0.75  # trigger LLM for fuzzy_low near-misses
+
+# Optional settings (add to Django settings.py or set via env)
+# SPRING_SUGGEST_URL = "http://localhost:8081/internal/suggestions"
+# SPRING_SUGGEST_BEARER = "eyJhbGciOi..."  # m2m token if you protect the endpoint
+# SPRING_SUGGEST_DEFAULT_LANG = "fr"
+
+def _post_suggestion(
+        src_label: str,
+        proposed_target_code: str,
+        score: float,
+        method: str,
+        language: Optional[str] = None,
+) -> None:
+    """
+    Fire-and-forget POST to Spring suggestions endpoint. Never raise.
+    """
+    url = getattr(settings, "SPRING_SUGGEST_URL", None)
+    if not url:
+        return
+    lang = language or getattr(settings, "SPRING_SUGGEST_DEFAULT_LANG", "fr")
+    payload = {
+        "src_label": src_label,
+        "norm_label": normalize_label(src_label),
+        "proposed_target_code": proposed_target_code,
+        "language": lang,
+        "score": float(score or 0.0),
+        "method": method,
+        "reason": "auto-mapped by LLM",
+    }
+    headers = {"Content-Type": "application/json"}
+    bearer = getattr(settings, "SPRING_SUGGEST_BEARER", None)
+    if bearer:
+        headers["Authorization"] = f"Bearer {bearer}"
+    try:
+        requests.post(url, json=payload, headers=headers, timeout=5)
+    except Exception:
+        # Do not block or crash matching on telemetry failures
+        pass
 
 
 def match_subjects(subjects: List[str]) -> Dict:
@@ -37,24 +79,30 @@ def match_subjects(subjects: List[str]) -> Dict:
         )
 
         if call_llm:
-            llm = None  # <-- ensure defined
+            llm = None
             try:
                 llm = map_with_llm(s)
-            except Exception as e:
-                # record the error path explicitly
+            except Exception:
                 results.append({
                     "src": s,
                     "target": None,
                     "method": "llm_error",
                     "score": round(float(score or 0.0), 3),
                 })
-                continue  # go to next subject
+                continue
 
-            # LLM responded
             if llm and llm.get("target_id"):
                 conf = float(llm.get("confidence", 0) or 0)
                 if conf >= LLM_MIN_CONF:
                     code, method, score = llm["target_id"], "llm_fallback", conf
+                    # Suggest to Spring so an alias can be approved and created later
+                    _post_suggestion(
+                        src_label=s,
+                        proposed_target_code=code,
+                        score=conf,
+                        method="llm_fallback",
+                        language=getattr(settings, "SPRING_SUGGEST_DEFAULT_LANG", "fr"),
+                    )
                 else:
                     method = "llm_reject"
             else:

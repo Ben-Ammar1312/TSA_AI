@@ -27,6 +27,7 @@ class SubjectTarget(models.Model):
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    coef = models.PositiveIntegerField(default=0)
 
     class Meta:
         indexes = [

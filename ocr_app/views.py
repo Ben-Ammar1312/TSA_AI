@@ -1,19 +1,21 @@
-# views.py
+# ocr_app/views.py
 
 import os
 import cv2
 import numpy as np
 from PIL import Image
 from django.conf import settings
-from rest_framework.decorators import api_view, parser_classes
+
+from rest_framework.decorators import api_view, parser_classes, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+
 from paddleocr import PaddleOCR
 
 from .serializers import OCRUploadSerializer
-from extract_courses_app import extract_view
-
+from extract_courses_app.llama_service import extract_courses
 # Initialize OCR model once
 ocr = PaddleOCR(lang='fr', use_textline_orientation=True)
 
@@ -61,13 +63,15 @@ def adaptive_preprocess(image_path, save_dir):
     TOO_SP = sp_ratio > SP_RATIO_LIMIT
 
     # --- Decision logic ---
-    # Only reject if *two or more* metrics fail significantly
     fail_count = sum([TOO_NOISY, TOO_BLURRY, TOO_SP])
     if fail_count >= 2:
         reason = []
-        if TOO_NOISY: reason.append("too noisy")
-        if TOO_BLURRY: reason.append("too blurry")
-        if TOO_SP: reason.append("too much salt & pepper noise")
+        if TOO_NOISY:
+            reason.append("too noisy")
+        if TOO_BLURRY:
+            reason.append("too blurry")
+        if TOO_SP:
+            reason.append("too much salt & pepper noise")
         return None, f"Image rejected: {' and '.join(reason)}. Please upload a clearer picture."
 
     # --- Enhancement ---
@@ -75,13 +79,14 @@ def adaptive_preprocess(image_path, save_dir):
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     processed = clahe.apply(gray)
 
-    # If slightly blurry, add a gentle sharpening filter
     if 25 < lap_var < BLUR_LIMIT:
-        kernel = np.array([
-            [-1, -1, -1],
-            [-1, 9, -1],
-            [-1, -1, -1]
-        ])
+        kernel = np.array(
+            [
+                [-1, -1, -1],
+                [-1,  9, -1],
+                [-1, -1, -1],
+            ]
+        )
         processed = cv2.filter2D(processed, -1, kernel)
 
     os.makedirs(save_dir, exist_ok=True)
@@ -93,15 +98,31 @@ def adaptive_preprocess(image_path, save_dir):
 # === Combined OCR + Course Extraction API ===
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser])
+@permission_classes([AllowAny])
 def ocr_extract_courses_view(request):
-    """
-    Accepts an image, runs OCR, and extracts courses from the text.
-    """
+    # DRF-level info
+    print("DEBUG /ocr/: method =", request.method)
+    print("DEBUG /ocr/: content_type =", request.content_type)
+    try:
+        print("DEBUG /ocr/: data keys =", list(request.data.keys()))
+    except Exception as e:
+        print("DEBUG /ocr/: error reading data keys:", e)
+
+    # Raw Django request info
+    django_req = request._request  # underlying HttpRequest
+    print("DEBUG /ocr/: META CONTENT_TYPE =", django_req.META.get("CONTENT_TYPE"))
+    print("DEBUG /ocr/: META CONTENT_LENGTH =", django_req.META.get("CONTENT_LENGTH"))
+    print("DEBUG /ocr/: POST keys =", list(django_req.POST.keys()))
+    print("DEBUG /ocr/: FILES keys =", list(django_req.FILES.keys()))
+
+
     serializer = OCRUploadSerializer(data=request.data)
     if not serializer.is_valid():
+        print("DEBUG /ocr/: serializer errors =", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     image_file = serializer.validated_data["image"]
+    print("DEBUG /ocr/: received file =", image_file.name, "size =", image_file.size)
 
     # Save uploaded image
     upload_dir = os.path.join(settings.MEDIA_ROOT, "uploads")
@@ -116,8 +137,10 @@ def ocr_extract_courses_view(request):
     processed_dir = os.path.join(settings.MEDIA_ROOT, "processed")
     image, error_message = adaptive_preprocess(image_path, processed_dir)
     if error_message:
+        print("DEBUG /ocr/: preprocessing error:", error_message)
         return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
     if image is None:
+        print("DEBUG /ocr/: image is None after preprocessing")
         return Response({"error": "Image processing failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # Perform OCR
@@ -130,12 +153,18 @@ def ocr_extract_courses_view(request):
         texts.extend(res.get("rec_texts", []))
     result_text = "\n".join(texts)
 
-    # Pass OCR result to course extraction
-    courses = extract_view(result_text)
+    print("DEBUG /ocr/: OCR lines_count =", len(texts))
 
-    return Response({
-        "filename": image_file.name,
-        "ocr_text": result_text,
-        "lines_count": len(texts),
-        "courses": courses
-    }, status=status.HTTP_200_OK)
+    # Pass OCR result to course extraction (pure function)
+    courses = extract_courses(result_text)
+    print("DEBUG /ocr/: extracted courses =", courses)
+
+    return Response(
+        {
+            "filename": image_file.name,
+            "ocr_text": result_text,
+            "lines_count": len(texts),
+            "courses": courses,
+        },
+        status=status.HTTP_200_OK,
+    )
