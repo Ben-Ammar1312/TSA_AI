@@ -1,10 +1,13 @@
 # ocr_app/views.py
 
 import os
+import shutil
+
+from django.conf import settings
 import cv2
 import numpy as np
+import pytesseract
 from PIL import Image
-from django.conf import settings
 
 from rest_framework.decorators import api_view, parser_classes, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -12,12 +15,17 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
-from paddleocr import PaddleOCR
-
 from .serializers import OCRUploadSerializer
 from extract_courses_app.llama_service import extract_courses
-# Initialize OCR model once
-ocr = PaddleOCR(lang='fr', use_textline_orientation=True)
+
+# Configure tesseract binary (Homebrew default) unless overridden by env
+TESSERACT_CMD = os.getenv("TESSERACT_CMD") or shutil.which("tesseract") or "/opt/homebrew/bin/tesseract"
+pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+
+# Point Tesseract to bundled tessdata if user hasn't set one
+DEFAULT_TESSDATA = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tessdata")
+if not os.getenv("TESSDATA_PREFIX"):
+    os.environ["TESSDATA_PREFIX"] = DEFAULT_TESSDATA
 
 # === Metrics ===
 def estimate_noise(img):
@@ -143,15 +151,12 @@ def ocr_extract_courses_view(request):
         print("DEBUG /ocr/: image is None after preprocessing")
         return Response({"error": "Image processing failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Perform OCR
+    # Perform OCR with Tesseract
     img_np = np.array(image.convert("RGB"))
-    ocr_result = ocr.predict(img_np)
+    # pytesseract returns a full string; split into lines for downstream logic
+    result_text = pytesseract.image_to_string(img_np, lang="fra")
 
-    # Extract recognized text
-    texts = []
-    for res in ocr_result:
-        texts.extend(res.get("rec_texts", []))
-    result_text = "\n".join(texts)
+    texts = [line for line in result_text.splitlines() if line.strip()]
 
     print("DEBUG /ocr/: OCR lines_count =", len(texts))
 

@@ -1,21 +1,26 @@
 import csv
+from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from matcher.models import SubjectTarget, SubjectAlias, Categorie, Lang
 from matcher.utils import normalize_label
 
 ALLOWED_CATS = {c.value for c in Categorie}
+DEFAULT_DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 class Command(BaseCommand):
     help = "Sync catalog to match the CSVs exactly (upsert + purge). FR first, then EN."
 
     def add_arguments(self, parser):
-        parser.add_argument('--targets', default='data/targets.csv')
-        parser.add_argument('--aliases', default='data/aliases.csv')
+        parser.add_argument('--targets', default=str(DEFAULT_DATA_DIR / 'targets.csv'))
+        parser.add_argument('--aliases', default=str(DEFAULT_DATA_DIR / 'aliases.csv'))
         parser.add_argument('--purge', action='store_true')
 
     def _read_csv(self, path):
-        with open(path, newline='', encoding='utf-8') as f:
+        p = Path(path)
+        if not p.exists():
+            raise CommandError(f"CSV not found: {p} (use --targets/--aliases to point to your files)")
+        with open(p, newline='', encoding='utf-8') as f:
             return list(csv.DictReader(f))
 
     @transaction.atomic

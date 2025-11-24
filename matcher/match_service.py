@@ -1,8 +1,10 @@
 # matcher/match_service.py
 from typing import List, Dict, Optional
+import logging
 import requests
 from django.conf import settings
 
+from matcher import fuzzy as fuzzy_module
 from matcher.fuzzy import (
     fuzzy_match,
     TOKEN_RATIO_OK,
@@ -12,6 +14,8 @@ from matcher.fuzzy import (
 )
 from matcher.llm_fallback import map_with_llm
 from matcher.utils import normalize_label
+
+logger = logging.getLogger(__name__)
 
 # thresholds
 LLM_MIN_CONF = 0.60
@@ -34,6 +38,7 @@ def _post_suggestion(
     """
     url = getattr(settings, "SPRING_SUGGEST_URL", None)
     if not url:
+        logger.debug("SPRING_SUGGEST_URL not configured; skipping suggestion for %r", src_label)
         return
     lang = language or getattr(settings, "SPRING_SUGGEST_DEFAULT_LANG", "fr")
     payload = {
@@ -51,9 +56,13 @@ def _post_suggestion(
         headers["Authorization"] = f"Bearer {bearer}"
     try:
         requests.post(url, json=payload, headers=headers, timeout=5)
-    except Exception:
+        logger.debug(
+            "Posted mapping suggestion to Spring url=%s target=%s score=%.3f method=%s",
+            url, proposed_target_code, score, method,
+        )
+    except Exception as exc:
         # Do not block or crash matching on telemetry failures
-        pass
+        logger.warning("Failed to post suggestion to Spring: %s", exc, exc_info=True)
 
 
 def match_subjects(subjects: List[str]) -> Dict:
@@ -65,11 +74,17 @@ def match_subjects(subjects: List[str]) -> Dict:
         "trace": [{"src": str, "target": str|None, "method": str, "score": float}, ...]
       }
     """
+    logger.debug("Starting subject matching for %s subjects: %r", len(subjects), subjects)
     refresh_candidates()
+    try:
+        logger.debug("Candidate cache size after refresh: %s", len(fuzzy_module.CANDIDATES or []))
+    except Exception:
+        logger.debug("Could not compute candidate cache size (will continue).")
     results = []
     matched_codes = set()
 
     for s in subjects:
+        logger.debug("Matching subject label=%r", s)
         code, method, score = fuzzy_match(s)
 
         # Should we ask the LLM?
@@ -81,8 +96,10 @@ def match_subjects(subjects: List[str]) -> Dict:
         if call_llm:
             llm = None
             try:
+                logger.debug("Calling LLM fallback for %r (method=%s score=%.3f)", s, method, score or 0)
                 llm = map_with_llm(s)
-            except Exception:
+            except Exception as exc:
+                logger.exception("LLM fallback failed for %r: %s", s, exc)
                 results.append({
                     "src": s,
                     "target": None,
@@ -108,6 +125,10 @@ def match_subjects(subjects: List[str]) -> Dict:
             else:
                 method = "llm_none"
 
+        logger.debug(
+            "Match result for %r -> target=%s method=%s score=%.3f",
+            s, code, method, float(score or 0.0),
+        )
         results.append({
             "src": s,
             "target": code,
@@ -121,6 +142,10 @@ def match_subjects(subjects: List[str]) -> Dict:
     from matcher.models import SubjectTarget
     total_targets = SubjectTarget.objects.filter(is_active=True).count()
     coverage = (len(matched_codes) / total_targets * 100.0) if total_targets else 0.0
+    logger.debug(
+        "Matching finished: matched_codes=%s total_targets=%s coverage_pct=%.2f",
+        sorted(matched_codes), total_targets, coverage
+    )
 
     return {
         "matched": sorted(matched_codes),

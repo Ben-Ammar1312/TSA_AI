@@ -144,3 +144,26 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        # noisy app-level tracing for debugging matcher flow
+        "matcher": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # keep Django framework logs visible without turning everything to DEBUG
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+    },
+}
