@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from PIL import Image
 import os
 
 def add_gaussian_noise(image, mean=0, sigma=25):

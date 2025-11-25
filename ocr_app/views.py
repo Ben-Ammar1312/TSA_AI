@@ -1,5 +1,3 @@
-# ocr_app/views.py
-
 import os
 import shutil
 
@@ -59,11 +57,11 @@ def adaptive_preprocess(image_path, save_dir):
     sp_ratio = salt_pepper_ratio(img)
     snr = signal_to_noise(img)
 
-    # --- Flexible thresholds ---
-    NOISE_VAR_LIMIT = 4900      # Gaussian noise variance above this → very noisy
-    SNR_LIMIT = 2               # Signal-to-noise ratio below this → very noisy
-    BLUR_LIMIT = 30             # Laplacian variance below this → blurry
-    SP_RATIO_LIMIT = 0.1        # Salt & pepper noise above this → noticeable
+    # --- thresholds ---
+    NOISE_VAR_LIMIT = 4900
+    SNR_LIMIT = 2
+    BLUR_LIMIT = 30
+    SP_RATIO_LIMIT = 0.1
 
     # Evaluate conditions
     TOO_NOISY = noise_var > NOISE_VAR_LIMIT or snr < SNR_LIMIT
