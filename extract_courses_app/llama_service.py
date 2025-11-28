@@ -2,8 +2,10 @@ import subprocess
 
 def extract_courses(text: str) -> list:
     prompt = f"""
-    Extract all course names from the text below.
-    Respond ONLY with a JSON list (e.g. ["Math","Physics"]).
+    The following transcript text is in FRENCH and comes from a course table. Extract ONLY the course names/subjects (ignore categories like Semestre, headers, or broken lines). Ignore grading columns.
+    Return ONLY a JSON list of strings, e.g. ["Algorithmique et Programmation-1","Programmation orienté objet C++"].
+
+    If a line looks garbled or incomplete, discard it.
 
     Text:
     {text}

@@ -16,6 +16,17 @@ from rest_framework import status
 from .serializers import OCRUploadSerializer
 from extract_courses_app.llama_service import extract_courses
 
+# PaddleOCR as primary engine
+OCR_ENGINE = os.getenv("OCR_ENGINE", "paddle").lower()  # paddle | tesseract (defaulting to paddle)
+paddle_ocr = None
+try:
+    from paddleocr import PaddleOCR
+    # Explicitly set lang French and enable angle + textline orientation for better table rows
+    paddle_ocr = PaddleOCR(lang="fr", use_angle_cls=True, use_textline_orientation=True, show_log=False)
+    print("DEBUG /ocr/: PaddleOCR initialized as primary engine")
+except Exception as e:
+    print("DEBUG /ocr/: PaddleOCR not available:", e)
+
 # Configure tesseract binary (Homebrew default) unless overridden by env
 TESSERACT_CMD = os.getenv("TESSERACT_CMD") or shutil.which("tesseract") or "/opt/homebrew/bin/tesseract"
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
@@ -57,49 +68,83 @@ def adaptive_preprocess(image_path, save_dir):
     sp_ratio = salt_pepper_ratio(img)
     snr = signal_to_noise(img)
 
-    # --- thresholds ---
-    NOISE_VAR_LIMIT = 4900
-    SNR_LIMIT = 2
-    BLUR_LIMIT = 30
-    SP_RATIO_LIMIT = 0.1
+    print(f"📊 Noise Report for {os.path.basename(image_path)}:")
+    print(f"   • Noise Variance: {noise_var:.2f}")
+    print(f"   • Laplacian Var : {lap_var:.2f}")
+    print(f"   • S&P Ratio     : {sp_ratio:.4f}")
+    print(f"   • SNR           : {snr:.2f}")
 
-    # Evaluate conditions
-    TOO_NOISY = noise_var > NOISE_VAR_LIMIT or snr < SNR_LIMIT
-    TOO_BLURRY = lap_var < BLUR_LIMIT
-    TOO_SP = sp_ratio > SP_RATIO_LIMIT
+    # --- Determine preprocessing strategy (from earlier Paddle pipeline) ---
+    if noise_var > 1500:
+        print("⚠️ Extreme Gaussian noise → Applying bilateral filter")
+        processed = cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
 
-    # --- Decision logic ---
-    fail_count = sum([TOO_NOISY, TOO_BLURRY, TOO_SP])
-    if fail_count >= 2:
-        reason = []
-        if TOO_NOISY:
-            reason.append("too noisy")
-        if TOO_BLURRY:
-            reason.append("too blurry")
-        if TOO_SP:
-            reason.append("too much salt & pepper noise")
-        return None, f"Image rejected: {' and '.join(reason)}. Please upload a clearer picture."
+    elif noise_var > 600 or snr < 14:
+        print("🧹 Gaussian-like noise → Non-local Means + light sharpening")
+        denoised = cv2.fastNlMeansDenoisingColored(img, None, 12, 12, 7, 21)
+        sharpen_kernel = np.array([[0, -1, 0],
+                                   [-1, 5, -1],
+                                   [0, -1, 0]])
+        processed = cv2.filter2D(denoised, -1, sharpen_kernel)
 
-    # --- Enhancement ---
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    processed = clahe.apply(gray)
+    elif sp_ratio > 0.005:
+        print("⚫ Salt & pepper noise → median blur + CLAHE")
+        median = cv2.medianBlur(img, 3)
+        gray = cv2.cvtColor(median, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        processed = clahe.apply(gray)
 
-    if 25 < lap_var < BLUR_LIMIT:
-        kernel = np.array(
-            [
-                [-1, -1, -1],
-                [-1,  9, -1],
-                [-1, -1, -1],
-            ]
-        )
-        processed = cv2.filter2D(processed, -1, kernel)
+    elif lap_var < 80:
+        print("💡 Detected blur → unsharp mask")
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (9, 9), 10.0)
+        processed = cv2.addWeighted(gray, 1.5, blurred, -0.5, 0)
 
+    else:
+        print("✅ Clean image → Light CLAHE enhancement")
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        processed = clahe.apply(gray)
+
+    # --- Save and return ---
     os.makedirs(save_dir, exist_ok=True)
     out_path = os.path.join(save_dir, os.path.basename(image_path))
     cv2.imwrite(out_path, processed)
+    print(f"🖼️ Processed image saved to: {out_path}\n")
+
+    # Upscale for better OCR on small text
+    h, w = processed.shape[:2]
+    scale = 1.0
+    if max(h, w) < 1800:
+        scale = 1.5
+    elif max(h, w) < 2400:
+        scale = 1.25
+    if scale != 1.0:
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        processed = cv2.resize(processed, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
+        print(f"🔍 Upscaled image to {new_w}x{new_h} for OCR")
 
     return Image.fromarray(processed), None
+
+def run_tesseract(image: Image.Image):
+    img_np = np.array(image.convert("RGB"))
+    result_text = pytesseract.image_to_string(img_np, lang="fra")
+    lines = [line for line in result_text.splitlines() if line.strip()]
+    return result_text, lines
+
+
+def run_paddle(image: Image.Image):
+    if paddle_ocr is None:
+        return None, []
+    img_np = np.array(image.convert("RGB"))
+    result = paddle_ocr.predict(img_np)
+    texts = []
+    for res in result:
+        texts.extend(res.get("rec_texts", []))
+    full_text = "\n".join(texts)
+    return full_text, texts
+
 
 # === Combined OCR + Course Extraction API ===
 @api_view(["POST"])
@@ -149,14 +194,20 @@ def ocr_extract_courses_view(request):
         print("DEBUG /ocr/: image is None after preprocessing")
         return Response({"error": "Image processing failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Perform OCR with Tesseract
-    img_np = np.array(image.convert("RGB"))
-    # pytesseract returns a full string; split into lines for downstream logic
-    result_text = pytesseract.image_to_string(img_np, lang="fra")
+    # Perform OCR
+    engine_used = "paddle"
+    result_text, texts = run_paddle(image)
 
-    texts = [line for line in result_text.splitlines() if line.strip()]
+    if (not texts or len(texts) < 3) and OCR_ENGINE != "tesseract":
+        # Fallback to tesseract only if paddle returns too little
+        t_text, t_lines = run_tesseract(image)
+        if t_lines:
+            engine_used = "tesseract"
+            result_text, texts = t_text, t_lines
 
-    print("DEBUG /ocr/: OCR lines_count =", len(texts))
+    print(f"DEBUG /ocr/: OCR engine={engine_used} lines_count={len(texts)}")
+    if texts:
+        print("DEBUG /ocr/: OCR lines sample =", texts[:10])
 
     # Pass OCR result to course extraction (pure function)
     courses = extract_courses(result_text)
@@ -165,6 +216,7 @@ def ocr_extract_courses_view(request):
     return Response(
         {
             "filename": image_file.name,
+            "engine": engine_used,
             "ocr_text": result_text,
             "lines_count": len(texts),
             "courses": courses,
