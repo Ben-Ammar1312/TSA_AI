@@ -1,12 +1,16 @@
 from rest_framework import viewsets, status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser, FileUploadParser, JSONParser
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.response import Response
 from django.db.models import Q
+from urllib.parse import urlparse, parse_qs
 import logging
 
 from matcher.match_service import match_subjects
 from matcher.utils import normalize_label
+from matcher.summarizer import summarize_audio_upload, summarize_from_url
 
 from .models import SubjectTarget, SubjectAlias, Categorie
 from .serializers import SubjectTargetSerializer, SubjectAliasSerializer
@@ -184,3 +188,61 @@ def match_view(request):
     logger.debug("Match response trace_count=%s coverage_pct=%s matched_codes=%r",
                  len(enriched), result.get("coverage_pct"), result.get("matched"))
     return Response(result)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@parser_classes([MultiPartParser, FormParser, FileUploadParser, JSONParser])
+def summarize_audio_view(request):
+    """
+    Accepts multipart file field "file" with audio; or a form field "url" pointing
+    to the audio (fallback when multipart parsing drops the file).
+    Returns {"summary": "..."} using the same LLM backend as matcher (Ollama).
+    """
+    audio = request.FILES.get("file")
+    if not audio and request.body:
+        # Fallback for raw bytes uploads without multipart
+        ctype = request.META.get("CONTENT_TYPE", "application/octet-stream")
+        audio = SimpleUploadedFile("audio.webm", request.body, content_type=ctype)
+    if audio:
+        logger.info("summarize_audio_view: received file name=%s size=%s content_type=%s",
+                    getattr(audio, "name", "?"), getattr(audio, "size", "?"), getattr(audio, "content_type", "?"))
+        summary = summarize_audio_upload(audio)
+        return Response({"summary": summary})
+
+    url = ""
+    if hasattr(request, "data"):
+        url = (request.data.get("url") or request.data.get("recording_url") or "").strip()
+    if not url:
+        # Accept url via query params as an extra fallback
+        url = (request.query_params.get("url") or request.query_params.get("recording_url") or "").strip()
+    if not url and request.body:
+        # Some clients post form-url-encoded without DRF parsing it
+        try:
+            decoded = request.body.decode(errors="ignore")
+            parsed = parse_qs(decoded)
+            url = (
+                (parsed.get("url") or [""])[0]
+                or (parsed.get("recording_url") or [""])[0]
+            ).strip()
+        except Exception:
+            url = ""
+    if url:
+        parsed = urlparse(url)
+        logger.info("summarize_audio_view: no file; attempting download from url=%s (netloc=%s)",
+                    url, parsed.netloc or "local")
+        summary = summarize_from_url(url)
+        return Response({"summary": summary})
+
+    body_len = len(request.body or b"")
+    if body_len == 0 and not request.FILES:
+        # Likely a premature/accidental hit; return 204 to avoid noise
+        logger.info("summarize_audio_view: empty request ignored (no file/url)")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    logger.warning("summarize_audio_view: missing file and url. content_type=%s data_keys=%s files=%s body_len=%s",
+                   request.META.get("CONTENT_TYPE"),
+                   list(getattr(request, "data", {}).keys()) if hasattr(request, "data") else [],
+                   list(request.FILES.keys()),
+                   body_len)
+    return Response({"summary": "", "error": "file is required"}, status=status.HTTP_400_BAD_REQUEST)
