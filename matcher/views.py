@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser, FileUploadParser, JSONParser
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.http import RawPostDataException
 from rest_framework.response import Response
 from django.db.models import Q
 from urllib.parse import urlparse, parse_qs
@@ -200,10 +201,15 @@ def summarize_audio_view(request):
     Returns {"summary": "..."} using the same LLM backend as matcher (Ollama).
     """
     audio = request.FILES.get("file")
-    if not audio and request.body:
-        # Fallback for raw bytes uploads without multipart
-        ctype = request.META.get("CONTENT_TYPE", "application/octet-stream")
-        audio = SimpleUploadedFile("audio.webm", request.body, content_type=ctype)
+    if not audio:
+        try:
+            body = request.body
+        except RawPostDataException:
+            body = b""
+        if body:
+            # Fallback for raw bytes uploads without multipart
+            ctype = request.META.get("CONTENT_TYPE", "application/octet-stream")
+            audio = SimpleUploadedFile("audio.webm", body, content_type=ctype)
     if audio:
         logger.info("summarize_audio_view: received file name=%s size=%s content_type=%s",
                     getattr(audio, "name", "?"), getattr(audio, "size", "?"), getattr(audio, "content_type", "?"))
@@ -216,17 +222,22 @@ def summarize_audio_view(request):
     if not url:
         # Accept url via query params as an extra fallback
         url = (request.query_params.get("url") or request.query_params.get("recording_url") or "").strip()
-    if not url and request.body:
-        # Some clients post form-url-encoded without DRF parsing it
+    if not url:
         try:
-            decoded = request.body.decode(errors="ignore")
-            parsed = parse_qs(decoded)
-            url = (
-                (parsed.get("url") or [""])[0]
-                or (parsed.get("recording_url") or [""])[0]
-            ).strip()
-        except Exception:
-            url = ""
+            body = request.body
+        except RawPostDataException:
+            body = b""
+        if body:
+            # Some clients post form-url-encoded without DRF parsing it
+            try:
+                decoded = body.decode(errors="ignore")
+                parsed = parse_qs(decoded)
+                url = (
+                    (parsed.get("url") or [""])[0]
+                    or (parsed.get("recording_url") or [""])[0]
+                ).strip()
+            except Exception:
+                url = ""
     if url:
         parsed = urlparse(url)
         logger.info("summarize_audio_view: no file; attempting download from url=%s (netloc=%s)",
@@ -234,7 +245,10 @@ def summarize_audio_view(request):
         summary = summarize_from_url(url)
         return Response({"summary": summary})
 
-    body_len = len(request.body or b"")
+    try:
+        body_len = len(request.body or b"")
+    except RawPostDataException:
+        body_len = 0
     if body_len == 0 and not request.FILES:
         # Likely a premature/accidental hit; return 204 to avoid noise
         logger.info("summarize_audio_view: empty request ignored (no file/url)")
